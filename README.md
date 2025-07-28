@@ -9,6 +9,23 @@ backend repo && npm install && npm start
 This is a secure and modular Express.js API server with JWT-based authentication, role-based access control, and user management features.
 It includes middleware for validation, rate limiting, CORS, helmet security, and exposes endpoints for login, user CRUD, and statistics.
 
+
+Authentication & Authorization: JWT-based authentication with role-based access control
+User Management: Complete CRUD operations for user accounts
+Security: Rate limiting, input validation, password hashing with bcrypt
+Statistics: Dashboard analytics and user statistics
+Data Validation: Comprehensive validation using express-validator
+Error Handling: Centralized error handling with detailed responses
+
+Node.js - Runtime environment
+Express.js - Web framework
+bcryptjs - Password hashing
+jsonwebtoken - JWT authentication
+express-validator - Input validation
+express-rate-limit - Rate limiting
+helmet - Security headers
+cors - Cross-origin resource sharing
+
 # Frontend
 git clone frontend file or install repo zip file
 npm install && npm run dev
