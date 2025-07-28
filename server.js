@@ -51,7 +51,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===== DATA STORE =====
 let users = [
   {
     id: 1,
@@ -183,7 +182,6 @@ const loginValidationRules = [
     .withMessage('Password is required')
 ];
 
-// FIXED: Separate validation rules for creating users
 const createUserValidationRules = [
   body('name')
     .trim()
@@ -451,79 +449,28 @@ const getUsersValidationRules = [
     })
 ];
 
-app.get('/', (req, res) => {
+app.get('/metadata', (req, res) => {
   try {
-    const welcomeData = {
-      message: "🚀 User Management API is running successfully!",
-      version: "1.0.0",
-      status: "active",
-      timestamp: new Date().toISOString(),
-      server: {
-        environment: process.env.NODE_ENV || 'development',
-        port: PORT,
-        uptime: process.uptime()
-      },
-      statistics: {
-        totalActiveUsers: users.filter(u => u.isActive).length,
-        totalRoles: ROLES.length,
-        totalPositions: POSITIONS.length
-      },
-      availableEndpoints: {
-        authentication: [
-          "POST /login - Login with email and password"
-        ],
-        users: [
-          "GET /users - Get all users (requires auth)",
-          "GET /users/:id - Get specific user (requires auth)",
-          "POST /users - Create new user (admin only)",
-          "PUT /users/:id - Update user (auth required)",
-          "DELETE /users/:id - Delete user (admin only)"
-        ],
-        stats: [
-          "GET /users/stats/overview - Get user statistics (admin only)"
-        ],
-        metadata: [
-          "GET /metadata - Get API metadata and available roles/positions"
-        ]
-      },
-      testCredentials: {
-        admin: {
-          email: "ali@example.com",
-          password: "password",
-          role: "admin"
-        },
-        user: {
-          email: "sara@example.com",
-          password: "password123",
-          role: "user"
-        }
-      },
-      documentation: {
-        authHeader: "Authorization: Bearer <your-jwt-token>",
-        responseFormat: {
-          success: true,
-          message: "Description of the operation",
-          data: "Actual response data",
-          error: "Error message if any",
-          code: "Error code if any"
-        }
+    const metadata = {
+      roles: ROLES,
+      positions: POSITIONS,
+      apiVersion: '1.0.0',
+      endpoints: {
+        auth: ['/login'],
+        users: ['/users', '/users/:id'],
+        stats: ['/users/stats/overview']
       }
     };
 
-    res.json(createResponse(
-      true,
-      'User Management API is running successfully!',
-      welcomeData
-    ));
-
+    res.json(createResponse(true, 'Metadata retrieved successfully', metadata));
   } catch (error) {
-    console.error('Root route error:', error);
+    console.error('Metadata error:', error);
     res.status(500).json(createResponse(
       false,
-      'API is running but encountered an error',
+      'Failed to retrieve metadata',
       null,
       'Internal server error',
-      'SERVER_ERROR'
+      'METADATA_ERROR'
     ));
   }
 });
@@ -598,6 +545,7 @@ app.get('/users',
 
       let filteredUsers = users.filter(user => user.isActive);
 
+      // Apply filters
       if (role) {
         filteredUsers = filteredUsers.filter(user => user.role === role);
       }
@@ -681,6 +629,7 @@ app.get('/users/:id',
   }
 );
 
+// FIXED: Use the new createUserValidationRules instead of userValidationRules
 app.post('/users',
   authenticateToken,
   adminOnly,
@@ -693,6 +642,7 @@ app.post('/users',
         salary, department, phoneNumber, address, hireDate, emergencyContact, skills
       } = req.body;
 
+      // Check if user already exists
       if (users.find(u => u.email === email)) {
         return res.status(409).json(createResponse(
           false,
@@ -778,6 +728,7 @@ app.put('/users/:id',
 
       const user = users[userIndex];
 
+      // Check permissions: users can only update themselves, admins can update anyone
       if (req.user.role !== 'admin' && req.user.id !== id) {
         return res.status(403).json(createResponse(
           false,
