@@ -51,6 +51,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`${timestamp} - ${req.method} ${req.path} - IP: ${req.ip} - User-Agent: ${req.get('User-Agent')}`);
+  console.log('Request body:', JSON.stringify(req.body, null, 2)); // Added for debugging
   next();
 });
 
@@ -153,6 +154,7 @@ const authenticateToken = (req, res, next) => {
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('Validation errors:', errors.array()); // Added for debugging
     return res.status(400).json(createResponse(
       false,
       'Validation failed',
@@ -187,7 +189,8 @@ const loginValidationRules = [
     .withMessage('Password is required')
 ];
 
-const userValidationRules = [
+// FIXED: Separate validation rules for creating users
+const createUserValidationRules = [
   body('name')
     .trim()
     .isLength({ min: 2, max: 100 })
@@ -199,6 +202,157 @@ const userValidationRules = [
   body('password')
     .isLength({ min: 6, max: 100 })
     .withMessage('Password must be 6-100 characters'),
+  body('role')
+    .optional()
+    .isIn(ROLES)
+    .withMessage(`Role must be one of: ${ROLES.join(', ')}`),
+  body('age')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const numValue = parseInt(value);
+      if (isNaN(numValue) || numValue < 18 || numValue > 100) {
+        throw new Error('Age must be between 18 and 100');
+      }
+      return true;
+    }),
+  body('workplace')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const trimmed = value.toString().trim();
+      if (trimmed.length < 2 || trimmed.length > 100) {
+        throw new Error('Workplace must be 2-100 characters');
+      }
+      return true;
+    }),
+  body('position')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      if (!POSITIONS.includes(value)) {
+        throw new Error('Position must be one of the predefined positions');
+      }
+      return true;
+    }),
+  body('salary')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue < 0) {
+        throw new Error('Salary must be a positive number');
+      }
+      return true;
+    }),
+  body('department')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const trimmed = value.toString().trim();
+      if (trimmed.length < 2 || trimmed.length > 50) {
+        throw new Error('Department must be 2-50 characters');
+      }
+      return true;
+    }),
+  body('phoneNumber')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      if (!/^[\d\s\-\(\)\+]+$/.test(value)) {
+        throw new Error('Invalid phone number format');
+      }
+      return true;
+    }),
+  body('address')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const trimmed = value.toString().trim();
+      if (trimmed.length < 5 || trimmed.length > 200) {
+        throw new Error('Address must be 5-200 characters');
+      }
+      return true;
+    }),
+  body('hireDate')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error('Hire date must be a valid date');
+      }
+      return true;
+    }),
+  body('emergencyContact')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null) return true;
+      if (typeof value !== 'object') {
+        throw new Error('Emergency contact must be an object');
+      }
+      return true;
+    }),
+  body('emergencyContact.name')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const trimmed = value.toString().trim();
+      if (trimmed.length < 2 || trimmed.length > 100) {
+        throw new Error('Emergency contact name must be 2-100 characters');
+      }
+      return true;
+    }),
+  body('emergencyContact.phone')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      if (!/^[\d\s\-\(\)\+]+$/.test(value)) {
+        throw new Error('Invalid emergency contact phone format');
+      }
+      return true;
+    }),
+  body('emergencyContact.relationship')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null || value === '') return true;
+      const trimmed = value.toString().trim();
+      if (trimmed.length < 2 || trimmed.length > 50) {
+        throw new Error('Relationship must be 2-50 characters');
+      }
+      return true;
+    }),
+  body('skills')
+    .optional()
+    .custom(value => {
+      if (value === undefined || value === null) return true;
+      if (!Array.isArray(value)) {
+        throw new Error('Skills must be an array');
+      }
+      for (let skill of value) {
+        if (typeof skill !== 'string' || skill.trim().length < 1 || skill.trim().length > 50) {
+          throw new Error('Each skill must be 1-50 characters');
+        }
+      }
+      return true;
+    })
+];
+
+const updateUserValidationRules = [
+  param('id')
+    .isInt({ min: 1 })
+    .withMessage('Valid user ID is required'),
+  // Make all user validation rules optional for updates
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Name must be 2-100 characters'),
+  body('email')
+    .optional()
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Valid email is required'),
   body('role')
     .optional()
     .isIn(ROLES)
@@ -261,19 +415,6 @@ const userValidationRules = [
     .trim()
     .isLength({ min: 1, max: 50 })
     .withMessage('Each skill must be 1-50 characters')
-];
-
-const updateUserValidationRules = [
-  param('id')
-    .isInt({ min: 1 })
-    .withMessage('Valid user ID is required'),
-  ...userValidationRules.map(rule => {
-
-    if (rule.builder.fields[0] !== 'id') {
-      return rule.optional();
-    }
-    return rule;
-  }).filter(rule => rule.builder.fields[0] !== 'password')
 ];
 
 const getUserValidationRules = [
@@ -497,10 +638,11 @@ app.get('/users/:id',
   }
 );
 
+// FIXED: Use the new createUserValidationRules instead of userValidationRules
 app.post('/users',
   authenticateToken,
   adminOnly,
-  userValidationRules,
+  createUserValidationRules,
   handleValidationErrors,
   async (req, res) => {
     try {
@@ -508,7 +650,6 @@ app.post('/users',
         name, email, password, role = 'user', age, workplace, position,
         salary, department, phoneNumber, address, hireDate, emergencyContact, skills
       } = req.body;
-
 
       // Check if user already exists
       if (users.find(u => u.email === email)) {
@@ -529,15 +670,15 @@ app.post('/users',
         email,
         password: hashedPassword,
         role,
-        age,
+        age: age ? parseInt(age) : undefined,
         workplace: workplace?.trim(),
         position,
-        salary,
+        salary: salary ? parseFloat(salary) : undefined,
         department: department?.trim(),
         phoneNumber,
         address: address?.trim(),
         hireDate,
-        emergencyContact,
+        emergencyContact: emergencyContact || undefined,
         skills: skills || [],
         createdAt: new Date().toISOString(),
         isActive: true
@@ -802,7 +943,7 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   console.log('\n🛑 Gracefully shutting down...');
   process.exit(0);
-});
+})
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
