@@ -629,7 +629,6 @@ app.get('/users/:id',
   }
 );
 
-// FIXED: Use the new createUserValidationRules instead of userValidationRules
 app.post('/users',
   authenticateToken,
   adminOnly,

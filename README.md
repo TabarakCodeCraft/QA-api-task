@@ -4,8 +4,25 @@
 
 ```bash
 # Backend
-git clone or install repo zip file from gitHub
-backend repo && npm install && npm start
+Backend Setup
+Clone the repository
+bashgit clone <repository-url>
+cd user-management-system/backend
+
+Install dependencies
+bashnpm install
+
+Environment Variables
+Create a .env file in the backend directory:
+envPORT=3000
+JWT_SECRET=QA_JSONWEBTOKEN
+NODE_ENV=development
+
+Start the server
+bashnpm start
+The API will be available at http://localhost:3000
+
+
 This is a secure and modular Express.js API server with JWT-based authentication, role-based access control, and user management features.
 It includes middleware for validation, rate limiting, CORS, helmet security, and exposes endpoints for login, user CRUD, and statistics.
 
