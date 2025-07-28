@@ -10,7 +10,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'QA_JSONWEBTOKEN';
 
-// ===== CONSTANTS =====
 const ROLES = ['admin', 'user', 'manager', 'supervisor', 'employee'];
 const POSITIONS = [
   'Frontend Developer', 'Backend Developer', 'Full Stack Developer',
@@ -20,14 +19,12 @@ const POSITIONS = [
   'Financial Analyst', 'Business Analyst', 'Project Manager'
 ];
 
-// ===== MIDDLEWARE SETUP =====
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 app.use(cors());
 
-// Enhanced rate limiting
 const createRateLimit = (windowMs, max, message) => rateLimit({
   windowMs,
   max,
@@ -47,7 +44,6 @@ app.use(generalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Enhanced request logging middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`${timestamp} - ${req.method} ${req.path} - IP: ${req.ip} - User-Agent: ${req.get('User-Agent')}`);
@@ -105,7 +101,6 @@ let users = [
   }
 ];
 
-// ===== UTILITY FUNCTIONS =====
 const createResponse = (success, message, data = null, error = null, code = null) => {
   const response = { success, message };
   if (data) response.data = data;
@@ -121,7 +116,6 @@ const removePassword = (user) => {
 
 const generateUserId = () => Date.now();
 
-// ===== MIDDLEWARE =====
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -154,7 +148,7 @@ const authenticateToken = (req, res, next) => {
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    console.log('Validation errors:', errors.array()); // Added for debugging
+    console.log('Validation errors:', errors.array());
     return res.status(400).json(createResponse(
       false,
       'Validation failed',
@@ -342,7 +336,6 @@ const updateUserValidationRules = [
   param('id')
     .isInt({ min: 1 })
     .withMessage('Valid user ID is required'),
-  // Make all user validation rules optional for updates
   body('name')
     .optional()
     .trim()
@@ -458,28 +451,79 @@ const getUsersValidationRules = [
     })
 ];
 
-app.get('/metadata', (req, res) => {
+app.get('/', (req, res) => {
   try {
-    const metadata = {
-      roles: ROLES,
-      positions: POSITIONS,
-      apiVersion: '1.0.0',
-      endpoints: {
-        auth: ['/login'],
-        users: ['/users', '/users/:id'],
-        stats: ['/users/stats/overview']
+    const welcomeData = {
+      message: "🚀 User Management API is running successfully!",
+      version: "1.0.0",
+      status: "active",
+      timestamp: new Date().toISOString(),
+      server: {
+        environment: process.env.NODE_ENV || 'development',
+        port: PORT,
+        uptime: process.uptime()
+      },
+      statistics: {
+        totalActiveUsers: users.filter(u => u.isActive).length,
+        totalRoles: ROLES.length,
+        totalPositions: POSITIONS.length
+      },
+      availableEndpoints: {
+        authentication: [
+          "POST /login - Login with email and password"
+        ],
+        users: [
+          "GET /users - Get all users (requires auth)",
+          "GET /users/:id - Get specific user (requires auth)",
+          "POST /users - Create new user (admin only)",
+          "PUT /users/:id - Update user (auth required)",
+          "DELETE /users/:id - Delete user (admin only)"
+        ],
+        stats: [
+          "GET /users/stats/overview - Get user statistics (admin only)"
+        ],
+        metadata: [
+          "GET /metadata - Get API metadata and available roles/positions"
+        ]
+      },
+      testCredentials: {
+        admin: {
+          email: "ali@example.com",
+          password: "password",
+          role: "admin"
+        },
+        user: {
+          email: "sara@example.com",
+          password: "password123",
+          role: "user"
+        }
+      },
+      documentation: {
+        authHeader: "Authorization: Bearer <your-jwt-token>",
+        responseFormat: {
+          success: true,
+          message: "Description of the operation",
+          data: "Actual response data",
+          error: "Error message if any",
+          code: "Error code if any"
+        }
       }
     };
 
-    res.json(createResponse(true, 'Metadata retrieved successfully', metadata));
+    res.json(createResponse(
+      true,
+      'User Management API is running successfully!',
+      welcomeData
+    ));
+
   } catch (error) {
-    console.error('Metadata error:', error);
+    console.error('Root route error:', error);
     res.status(500).json(createResponse(
       false,
-      'Failed to retrieve metadata',
+      'API is running but encountered an error',
       null,
       'Internal server error',
-      'METADATA_ERROR'
+      'SERVER_ERROR'
     ));
   }
 });
@@ -554,7 +598,6 @@ app.get('/users',
 
       let filteredUsers = users.filter(user => user.isActive);
 
-      // Apply filters
       if (role) {
         filteredUsers = filteredUsers.filter(user => user.role === role);
       }
@@ -638,7 +681,6 @@ app.get('/users/:id',
   }
 );
 
-// FIXED: Use the new createUserValidationRules instead of userValidationRules
 app.post('/users',
   authenticateToken,
   adminOnly,
@@ -651,7 +693,6 @@ app.post('/users',
         salary, department, phoneNumber, address, hireDate, emergencyContact, skills
       } = req.body;
 
-      // Check if user already exists
       if (users.find(u => u.email === email)) {
         return res.status(409).json(createResponse(
           false,
@@ -725,7 +766,6 @@ app.put('/users/:id',
         ));
       }
 
-      // Check if email is already taken by another user
       if (updateData.email && users.some(u => u.email === updateData.email && u.id !== id)) {
         return res.status(409).json(createResponse(
           false,
@@ -738,7 +778,6 @@ app.put('/users/:id',
 
       const user = users[userIndex];
 
-      // Check permissions: users can only update themselves, admins can update anyone
       if (req.user.role !== 'admin' && req.user.id !== id) {
         return res.status(403).json(createResponse(
           false,
